@@ -20,33 +20,38 @@ stdenv.mkDerivation rec {
   nativeBuildInputs = [ cmake ];
   buildInputs = [ lingeling btor2tools gmp ];
 
+  prePatch = ''
+    substituteInPlace CMakeLists.txt \
+      --replace 'set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ''${CMAKE_BINARY_DIR}/lib)' "set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY $lib/lib)" \
+      --replace 'set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ''${CMAKE_BINARY_DIR}/lib)' "set(CMAKE_LIBRARY_OUTPUT_DIRECTORY $lib/lib)" \
+      --replace 'set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ''${CMAKE_BINARY_DIR}/bin)' "set(CMAKE_RUNTIME_OUTPUT_DIRECTORY $out/bin)"
+  '';
+
   cmakeFlags =
     [ "-DBUILD_SHARED_LIBS=ON"
       "-DUSE_LINGELING=YES"
-      "-DBtor2Tools_INCLUDE_DIR=${btor2tools.dev}/include"
-      "-DBtor2Tools_LIBRARIES=${btor2tools.lib}/lib/libbtor2parser.so"
+      "-DCMAKE_BUILD_WITH_INSTALL_NAME_DIR=ON"
     ] ++ (lib.optional (gmp != null) "-DUSE_GMP=YES");
-
-  installPhase = ''
-    mkdir -p $out/bin $lib/lib $dev/include
-
-    cp -vr bin/* $out/bin
-    cp -vr lib/* $lib/lib
-
-    rm -rf $out/bin/{examples,tests}
-    # we don't care about gtest related libs
-    rm -rf $lib/lib/libg*
-
-    cd ../src
-    find . -iname '*.h' -exec cp --parents '{}' $dev/include \;
-    rm -rf $dev/include/tests
-  '';
 
   checkInputs = [ python3 ];
   doCheck = true;
-  preCheck = ''
-    export LD_LIBRARY_PATH=$(readlink -f lib)
-    patchShebangs ..
+  preCheck =
+    let libPathVar = if stdenv.isDarwin then "DYLD_LIBRARY_PATH" else "LD_LIBRARY_PATH";
+    in ''
+      export ${libPathVar}=$(readlink -f lib)
+      patchShebangs ..
+    '';
+
+  # rm stuff from outputs
+  postInstall = ''
+    rm -rf $out/bin/{examples,tests}
+    rm -rf $out/lib
+    # we don't care about gtest related libs
+    rm -rf $lib/lib/libg*
+
+    rm -rf $dev/*
+    cd ../src
+    find . -iname '*.h' -exec cp --parents '{}' $dev/include \;
   '';
 
   outputs = [ "out" "dev" "lib" ];
@@ -55,7 +60,7 @@ stdenv.mkDerivation rec {
     description = "An extremely fast SMT solver for bit-vectors and arrays";
     homepage    = "https://boolector.github.io";
     license     = licenses.mit;
-    platforms   = platforms.linux;
+    platforms   = with platforms; linux ++ darwin;
     maintainers = with maintainers; [ thoughtpolice ];
   };
 }

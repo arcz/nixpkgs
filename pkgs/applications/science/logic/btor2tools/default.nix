@@ -13,6 +13,10 @@ stdenv.mkDerivation rec {
 
   nativeBuildInputs = [ cmake ];
 
+  cmakeFlags = [
+    "-DCMAKE_BUILD_WITH_INSTALL_NAME_DIR=ON"
+  ];
+
   installPhase = ''
     mkdir -p $out $dev/include/btor2parser/ $lib/lib
 
