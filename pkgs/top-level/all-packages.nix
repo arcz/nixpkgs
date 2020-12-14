@@ -1161,6 +1161,9 @@ in
 
   sedutil = callPackage ../tools/security/sedutil { };
 
+  echidna = haskell.lib.justStaticExecutables
+    (haskellPackages.callPackage ../tools/security/echidna { });
+
   elvish = callPackage ../shells/elvish { };
 
   emplace = callPackage ../tools/package-management/emplace { };
